@@ -1,0 +1,63 @@
+[package]
+name = "vanguard"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.97"
+description = "A real Kubernetes Operator for multi-tenant control planes"
+license = "MIT"
+
+[lib]
+name = "vanguard"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vanguard"
+path = "src/main.rs"
+
+[[bin]]
+name = "crdgen"
+path = "src/bin/crdgen.rs"
+
+[[bin]]
+name = "vanguard-demo"
+path = "src/bin/demo.rs"
+
+[dependencies]
+# Kubernetes client + CRD derive + reconcile runtime
+kube = { version = "0.94", features = ["client", "derive", "runtime", "rustls-tls"], default-features = false }
+k8s-openapi = { version = "0.22", features = ["v1_29"] }
+schemars = "0.8"
+async-trait = "0.1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# REST API
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "timeout"] }
+
+# TUI
+ratatui = "0.28"
+crossterm = "0.28"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Errors / logging / time
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

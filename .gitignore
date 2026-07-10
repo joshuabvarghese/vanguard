@@ -1,0 +1,6 @@
+/target
+vanguard.log
+vanguard.pid
+.kube/
+*.log
+.DS_Store
