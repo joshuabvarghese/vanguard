@@ -1,0 +1,76 @@
+---
+# ClusterRole grants the operator the minimum permissions it needs.
+# Principle of least privilege: only the verbs actually called in
+# src/reconcile.rs / src/k8s_backend.rs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vanguard-operator
+  labels:
+    app.kubernetes.io/managed-by: vanguard-operator
+rules:
+  # TenantPipeline CRDs (read + write + status)
+  - apiGroups: ["infrastructure.vanguard.io"]
+    resources: ["tenantpipelines"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["infrastructure.vanguard.io"]
+    resources: ["tenantpipelines/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["infrastructure.vanguard.io"]
+    resources: ["tenantpipelines/finalizers"]
+    verbs: ["update"]
+
+  # Namespaces (create/delete per tenant)
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ConfigMaps (rate-limit hot-reload)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Deployments (proxy lifecycle)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Pods (drift detection — watch pod phase changes)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+
+  # Events (operator emits events for observability)
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+
+  # Leader election (required by controller-runtime even when disabled)
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vanguard-operator
+  namespace: vanguard-system
+  labels:
+    app.kubernetes.io/managed-by: vanguard-operator
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vanguard-operator
+  labels:
+    app.kubernetes.io/managed-by: vanguard-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vanguard-operator
+subjects:
+  - kind: ServiceAccount
+    name: vanguard-operator
+    namespace: vanguard-system

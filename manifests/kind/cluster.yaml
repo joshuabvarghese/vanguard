@@ -1,0 +1,38 @@
+# A single control-plane node keeps the footprint at ~400 MB total.
+# Worker nodes are disabled; the operator runs in-cluster via kubectl port-forward.
+#
+# Usage:  kind create cluster --config manifests/kind/cluster.yaml --name vanguard
+---
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: vanguard
+
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
+
+    # Port mappings let curl hit the operator API from the host.
+    extraPortMappings:
+      - containerPort: 8081
+        hostPort: 8081
+        protocol: TCP
+      - containerPort: 8081
+        hostPort: 8081
+        protocol: TCP
+
+    # Kubelet resource patches — cap the node so Kind doesn't eat all 8 GB.
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        evictionHard:
+          memory.available: "256Mi"
+          nodefs.available: "5%"
+        systemReserved:
+          memory: "256Mi"
+          cpu: "250m"
+
+# Keep the CNI simple; Kindnet works on ARM64 without configuration.
+networking:
+  disableDefaultCNI: false
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"
