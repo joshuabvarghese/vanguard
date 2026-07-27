@@ -1,0 +1,135 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tenantpipelines.infrastructure.vanguard.io
+spec:
+  group: infrastructure.vanguard.io
+  names:
+    categories: []
+    kind: TenantPipeline
+    plural: tenantpipelines
+    shortNames:
+    - tp
+    singular: tenantpipeline
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.tenantId
+      name: Tenant
+      type: string
+    - jsonPath: .spec.rateLimit.tier
+      name: Tier
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for TenantPipelineSpec via `CustomResource`
+        properties:
+          spec:
+            description: Desired state declared by the operator user / REST API.
+            properties:
+              displayName:
+                default: ''
+                type: string
+              paused:
+                default: false
+                type: boolean
+              proxy:
+                default:
+                  image: ''
+                  port: 0
+                description: Controls the sidecar Envoy / edge-router deployment.
+                properties:
+                  image:
+                    default: ''
+                    type: string
+                  port:
+                    default: 0
+                    format: int32
+                    type: integer
+                  resourceLimitMemoryMiB:
+                    format: int64
+                    nullable: true
+                    type: integer
+                  resourceLimitMilliCPU:
+                    format: int64
+                    nullable: true
+                    type: integer
+                type: object
+              rateLimit:
+                description: Token-bucket rate-limit parameters for a tenant tier. Hot-reloaded into the tenant's ConfigMap without restarting proxy pods.
+                properties:
+                  burstCapacity:
+                    format: int32
+                    type: integer
+                  maxConcurrent:
+                    format: int32
+                    type: integer
+                  requestsPerSecond:
+                    format: int32
+                    type: integer
+                  tier:
+                    description: '"free" | "pro" | "enterprise"'
+                    type: string
+                required:
+                - burstCapacity
+                - maxConcurrent
+                - requestsPerSecond
+                - tier
+                type: object
+              tenantId:
+                type: string
+            required:
+            - rateLimit
+            - tenantId
+            type: object
+          status:
+            description: Written back by the operator to reflect actual cluster state.
+            nullable: true
+            properties:
+              conditions:
+                default: []
+                description: '`k8s_openapi::Condition` doesn''t implement `JsonSchema` (no `schemars` feature on that crate), so this field gets a permissive array-of-objects schema instead of a fully-typed one — matching how most real-world operators leave `status.conditions` schema-loose anyway, since it''s server-managed and not user-authored.'
+                items: {}
+                type: array
+              configMapName:
+                default: ''
+                type: string
+              lastReconcileTime:
+                nullable: true
+                type: string
+              namespaceName:
+                default: ''
+                type: string
+              observedGeneration:
+                default: 0
+                format: int64
+                type: integer
+              phase:
+                default: Provisioning
+                description: High-level lifecycle stage of a TenantPipeline.
+                enum:
+                - Provisioning
+                - Ready
+                - Degraded
+                - Terminating
+                type: string
+              proxyPodName:
+                default: ''
+                type: string
+              reconcileCount:
+                default: 0
+                format: int64
+                type: integer
+            type: object
+        required:
+        - spec
+        title: TenantPipeline
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
