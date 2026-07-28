@@ -1,0 +1,59 @@
+---
+# Example TenantPipeline CRs for local testing.
+# Apply with:  kubectl apply -f hack/sample-tenants.yaml
+---
+apiVersion: infrastructure.vanguard.io/v1alpha1
+kind: TenantPipeline
+metadata:
+  name: acme-corp
+spec:
+  tenantId: acme-corp
+  displayName: "Acme Corp (Pro)"
+  rateLimit:
+    tier: pro
+    requestsPerSecond: 200
+    burstCapacity: 400
+    maxConcurrent: 50
+  proxy:
+    image: envoyproxy/envoy:v1.28-latest
+    port: 10000
+    resourceLimitMilliCPU: 100
+    resourceLimitMemoryMiB: 64
+
+---
+apiVersion: infrastructure.vanguard.io/v1alpha1
+kind: TenantPipeline
+metadata:
+  name: stripe-dev
+spec:
+  tenantId: stripe-dev
+  displayName: "Stripe Dev (Free)"
+  rateLimit:
+    tier: free
+    requestsPerSecond: 10
+    burstCapacity: 20
+    maxConcurrent: 5
+  proxy:
+    image: envoyproxy/envoy:v1.28-latest
+    port: 10001
+    resourceLimitMilliCPU: 50
+    resourceLimitMemoryMiB: 32
+
+---
+apiVersion: infrastructure.vanguard.io/v1alpha1
+kind: TenantPipeline
+metadata:
+  name: datadog-internal
+spec:
+  tenantId: datadog-internal
+  displayName: "Datadog Internal (Enterprise)"
+  rateLimit:
+    tier: enterprise
+    requestsPerSecond: 5000
+    burstCapacity: 10000
+    maxConcurrent: 500
+  proxy:
+    image: envoyproxy/envoy:v1.28-latest
+    port: 10002
+    resourceLimitMilliCPU: 200
+    resourceLimitMemoryMiB: 128
