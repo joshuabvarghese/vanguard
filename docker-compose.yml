@@ -1,0 +1,40 @@
+# =============================================================================
+#  docker-compose.yml — run the Vanguard binary in a container against a
+#  local Kind cluster.
+#
+#  Vanguard is a real Kubernetes operator: it needs a live API server to talk
+#  to, so this compose file doesn't replace `make cluster-up` — it just runs
+#  the *binary* in a container instead of on the host, joined to the same
+#  Docker network Kind uses so it can resolve the control-plane container by
+#  name.
+#
+#  One-time setup (after `make cluster-up install`):
+#    ./scripts/docker-kubeconfig.sh          # writes .kube/config.internal
+#
+#  Then:
+#    docker compose up --build               # headless (VANGUARD_NO_TUI=1)
+#    docker compose run --rm -it vanguard     # attach a TTY to see the TUI
+# =============================================================================
+services:
+  vanguard:
+    build: .
+    image: vanguard:latest
+    container_name: vanguard
+    ports:
+      - "8081:8081" # REST API
+    environment:
+      KUBECONFIG: /home/vanguard/.kube/config
+      VANGUARD_API_ADDR: ":8081"
+      VANGUARD_NO_TUI: "1"
+      RUST_LOG: info
+    volumes:
+      - ./.kube/config.internal:/home/vanguard/.kube/config:ro
+    networks:
+      - kind
+    restart: unless-stopped
+
+networks:
+  # Created automatically by `kind create cluster`; declared external so
+  # compose doesn't try to own its lifecycle.
+  kind:
+    external: true
