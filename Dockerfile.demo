@@ -1,0 +1,47 @@
+# =============================================================================
+#  Dockerfile.demo — Vanguard DEMO binary (no Kubernetes cluster required)
+#
+#  Builds `vanguard-demo`: the same REST API, reconcile loop, and chaos
+#  engine as the real operator, wired to an in-memory mock backend instead
+#  of a live cluster, serving a small web dashboard. This is the image to
+#  deploy for a shareable portfolio/demo link (Fly.io, Render, Railway,
+#  a single VM — anything that can run a container and expose one port).
+#
+#  Build:  docker build -f Dockerfile.demo -t vanguard-demo:latest .
+#  Run:    docker run --rm -p 8081:8081 vanguard-demo:latest
+# =============================================================================
+
+FROM rust:1.97.0-bookworm AS builder
+WORKDIR /src
+
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir -p src/bin \
+    && echo "fn main() {}" > src/main.rs \
+    && echo "fn main() {}" > src/bin/crdgen.rs \
+    && echo "fn main() {}" > src/bin/demo.rs \
+    && cargo build --release --bin vanguard-demo 2>/dev/null || true \
+    && rm -rf src
+
+COPY src ./src
+COPY assets ./assets
+RUN touch src/bin/demo.rs && cargo build --release --bin vanguard-demo
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r vanguard && useradd -r -g vanguard -m -d /home/vanguard vanguard
+
+COPY --from=builder /src/target/release/vanguard-demo /usr/local/bin/vanguard-demo
+
+USER vanguard
+WORKDIR /home/vanguard
+
+ENV RUST_LOG=info
+ENV PORT=8081
+EXPOSE 8081
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -sf http://127.0.0.1:8081/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/vanguard-demo"]
