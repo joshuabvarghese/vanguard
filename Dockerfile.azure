@@ -1,0 +1,50 @@
+# =============================================================================
+#  Dockerfile.azure — vanguard built with `--features azure`
+#
+#  Separate from the root Dockerfile because it builds a different set of
+#  Cargo features and targets a different runtime (AKS + Workload Identity,
+#  see the ENV block below), not because of any toolchain difference — this
+#  image and the root Dockerfile now both build from the same
+#  rust:1.97.0-bookworm base.
+#
+#  Build:  docker build -f Dockerfile.azure -t vanguard:azure .
+#  Push:   az acr build -r <registry> -t vanguard:azure -f Dockerfile.azure .
+# =============================================================================
+
+FROM rust:1.97.0-bookworm AS builder
+WORKDIR /src
+
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs \
+    && cargo build --release --features azure 2>/dev/null || true \
+    && rm -rf src
+
+COPY src ./src
+RUN touch src/main.rs && cargo build --release --features azure
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r vanguard && useradd -r -g vanguard -m -d /home/vanguard vanguard
+
+COPY --from=builder /src/target/release/vanguard /usr/local/bin/vanguard
+
+USER vanguard
+WORKDIR /home/vanguard
+
+# On AKS the pod runs headless (no TTY) and identifies to Azure via
+# Workload Identity — no credentials baked into the image or passed as
+# env/secret. See manifests/azure/deployment.yaml for the full env var set
+# (VANGUARD_AUTH_MODE, VANGUARD_KEYVAULT_URL, etc.), which is deployment
+# config, not image config, and so isn't hardcoded here.
+ENV VANGUARD_NO_TUI=1
+ENV VANGUARD_API_ADDR=:8081
+ENV RUST_LOG=info
+
+EXPOSE 8081
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -sf http://127.0.0.1:8081/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/vanguard"]

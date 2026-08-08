@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vanguard — control plane demo</title>
+<link rel="icon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">▲</span>
+    <span class="brand-name">VANGUARD</span>
+    <span class="brand-sub">control plane</span>
+  </div>
+  <div class="topbar-status">
+    <span class="dot dot-live" id="conn-dot"></span>
+    <span id="conn-label">connecting…</span>
+    <span class="sep">/</span>
+    <span id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="banner">
+  <span class="banner-label">DEMO MODE</span>
+  <span class="banner-copy">Real reconcile loop, in-memory mock cluster — no kubectl required. <a href="https://github.com" id="repo-link" target="_blank" rel="noopener">Source →</a></span>
+</div>
+
+<main class="shell">
+
+  <section class="col col-tenants">
+    <div class="col-head">
+      <h2>Tenants</h2>
+      <span class="count" id="tenant-count">0</span>
+    </div>
+
+    <form id="create-form" class="create-form">
+      <input type="text" id="f-tenant-id" placeholder="tenant id, e.g. globex" required pattern="[a-z0-9-]+" />
+      <input type="text" id="f-display-name" placeholder="display name" required />
+      <select id="f-tier">
+        <option value="free">free — 20 rps</option>
+        <option value="pro" selected>pro — 200 rps</option>
+        <option value="enterprise">enterprise — 5000 rps</option>
+      </select>
+      <button type="submit" class="btn btn-primary">
+        <span>Provision tenant</span>
+      </button>
+    </form>
+
+    <div id="tenant-list" class="tenant-list"></div>
+  </section>
+
+  <section class="col col-logs">
+    <div class="col-head">
+      <h2>Reconcile log</h2>
+      <span class="live-pill"><span class="dot dot-live"></span>live</span>
+    </div>
+    <div id="log-stream" class="log-stream" aria-live="polite"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>Rust · axum · kube-rs · tokio</span>
+  <span class="sep">·</span>
+  <span>Same reconcile_tenant() / handle_deletion() code path as the real operator — only the cluster underneath is mocked.</span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

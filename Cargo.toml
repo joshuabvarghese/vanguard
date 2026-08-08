@@ -54,6 +54,47 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 
+# HTTP client — used by the JWKS fetch in cloud::azure::identity and the
+# Azure SDKs below. Kept out of the default feature set (rustls, no
+# native-tls) so it doesn't add an OpenSSL build dependency to the plain
+# `cargo build`/CI path.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+
+# --- Azure integration, behind `--features azure` ---------------------
+# Kept optional/feature-gated deliberately: the default `cargo
+# build`/`cargo test`/CI path (Kind, mock backends) has no reason to pay
+# these crates' compile cost, and most contributors running `make test`
+# locally don't have Azure credentials to exercise them against anyway.
+# See src/cloud/mod.rs for the trait boundary this sits behind.
+#
+# One toolchain covers both paths: at rust-version 1.97 there's no MSRV
+# split between the default build and `--features azure` (this used to
+# need a separately-pinned newer toolchain — no longer the case), so
+# `Dockerfile`, `Dockerfile.demo`, `Dockerfile.azure`, and every CI job all
+# build from the same `rust:1.97.0-bookworm` image.
+azure_core = { version = "0.21", optional = true }
+azure_identity = { version = "0.21", optional = true }
+azure_security_keyvault = { version = "0.21", optional = true }
+jsonwebtoken = { version = "9", optional = true }
+opentelemetry = { version = "0.24", optional = true }
+opentelemetry_sdk = { version = "0.24", features = ["rt-tokio"], optional = true }
+opentelemetry-application-insights = { version = "0.34", features = ["reqwest-client-rustls"], optional = true }
+tracing-opentelemetry = { version = "0.25", optional = true }
+
+[features]
+default = []
+azure = [
+  "dep:reqwest",
+  "dep:azure_core",
+  "dep:azure_identity",
+  "dep:azure_security_keyvault",
+  "dep:jsonwebtoken",
+  "dep:opentelemetry",
+  "dep:opentelemetry_sdk",
+  "dep:opentelemetry-application-insights",
+  "dep:tracing-opentelemetry",
+]
+
 [dev-dependencies]
 tokio-test = "0.4"
 

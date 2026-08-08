@@ -1,0 +1,100 @@
+# Vanguard control plane on AKS — Azure-native flagship configuration.
+# Contrast with a bare `docker run`/Kind deployment: no mounted kubeconfig
+# (uses in-cluster config automatically via the `kube` crate), no secret
+# env vars (Workload Identity + Key Vault CSI driver instead), auth and
+# telemetry both pointed at real Azure services rather than the no-op
+# defaults in src/cloud/mock.rs.
+#
+# Fill in <ACR_LOGIN_SERVER>, <ENTRA_TENANT_ID>, <ENTRA_APP_ID>,
+# <KEY_VAULT_URI>, <APPINSIGHTS_CONNECTION_STRING> from the Bicep outputs
+# and App Registration step in infra/bicep/README.md, or template this with
+# `envsubst`/kustomize in a real pipeline (see .github/workflows/deploy-azure.yml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vanguard-control-plane
+  namespace: vanguard-system
+  labels:
+    app.kubernetes.io/name: vanguard
+    app.kubernetes.io/managed-by: vanguard-operator
+spec:
+  replicas: 1 # single control-plane instance; see reconcile.rs's leader-election note
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vanguard
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vanguard
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: vanguard-operator
+      containers:
+        - name: vanguard
+          image: <ACR_LOGIN_SERVER>/vanguard:azure
+          ports:
+            - containerPort: 8081
+              name: api
+          env:
+            - name: VANGUARD_NO_TUI
+              value: "1"
+            - name: VANGUARD_API_ADDR
+              value: ":8081"
+            - name: RUST_LOG
+              value: "info,vanguard=debug"
+
+            # REST API auth — Entra ID (cloud::azure::identity::EntraIdVerifier)
+            - name: VANGUARD_AUTH_MODE
+              value: "entra"
+            - name: VANGUARD_ENTRA_TENANT_ID
+              value: "<ENTRA_TENANT_ID>"
+            - name: VANGUARD_ENTRA_AUDIENCE
+              value: "<ENTRA_APP_ID>"
+
+            # Control-plane's own secrets — Key Vault (cloud::azure::keyvault)
+            - name: VANGUARD_KEYVAULT_URL
+              value: "<KEY_VAULT_URI>"
+
+            # Tracing/telemetry export — Azure Monitor (cloud::azure::monitor)
+            - name: VANGUARD_APPINSIGHTS_CONNECTION_STRING
+              value: "<APPINSIGHTS_CONNECTION_STRING>"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: api
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: api
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vanguard-control-plane
+  namespace: vanguard-system
+  labels:
+    app.kubernetes.io/name: vanguard
+spec:
+  selector:
+    app.kubernetes.io/name: vanguard
+  ports:
+    - port: 80
+      targetPort: api
+      name: api
+  type: ClusterIP
